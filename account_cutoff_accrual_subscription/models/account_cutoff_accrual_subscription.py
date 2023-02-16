@@ -50,7 +50,7 @@ class AccountCutoffAccrualSubscription(models.Model):
     )
     partner_id = fields.Many2one(
         "res.partner",
-        string="Supplier",
+        string="Partner",
         domain=[("parent_id", "=", False)],
         ondelete="restrict",
     )
@@ -175,7 +175,7 @@ class AccountCutoffAccrualSubscription(models.Model):
                 domain_base.append(("partner_id", "=", self.partner_id.id))
             else:
                 raise UserError(
-                    _("Missing supplier on subscription '%s'.") % self.display_name
+                    _("Missing partner on subscription '%s'.") % self.display_name
                 )
         elif self.partner_type == "none":
             domain_base.append(("partner_id", "=", False))

@@ -117,12 +117,12 @@
                     />
                 <filter
                         name="partner_groupby"
-                        string="Supplier"
+                        string="Partner"
                         context="{'group_by': 'partner_id'}"
                     />
                 <filter
                         name="account_groupby"
-                        string="Expense Account"
+                        string="Account"
                         context="{'group_by': 'account_id'}"
                     />
                 <filter

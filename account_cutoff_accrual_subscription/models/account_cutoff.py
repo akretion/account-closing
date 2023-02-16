@@ -186,9 +186,10 @@ class AccountCutoff(models.Model):
                 )
             return vals
 
-    class AccountCutoffLine(models.Model):
-        _inherit = "account.cutoff.line"
 
-        subscription_id = fields.Many2one(
-            "account.cutoff.accrual.subscription", ondelete="restrict"
-        )
+class AccountCutoffLine(models.Model):
+    _inherit = "account.cutoff.line"
+
+    subscription_id = fields.Many2one(
+        "account.cutoff.accrual.subscription", ondelete="restrict"
+    )
