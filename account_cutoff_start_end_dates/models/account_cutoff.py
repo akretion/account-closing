@@ -208,6 +208,10 @@ class AccountCutoff(models.Model):
                 ("start_date", "<=", self.cutoff_date),
                 ("date", ">", self.cutoff_date),
             ]
+        if self.cutoff_type in ["accrued_expense", "prepaid_expense"]:
+            domain += [("account_id.user_type_id.internal_group", "=", "expense")]
+        elif self.cutoff_type in ["accrued_revenue", "prepaid_revenue"]:
+            domain += [("account_id.user_type_id.internal_group", "=", "income")]
         amls = aml_obj.search(domain)
         for aml in amls:
             line_obj.create(self._prepare_date_cutoff_line(aml, mapping))
