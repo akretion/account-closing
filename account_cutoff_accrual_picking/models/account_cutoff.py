@@ -392,8 +392,29 @@ class AccountCutoff(models.Model):
 
     def get_lines(self):
         res = super().get_lines()
-        aclo = self.env["account.cutoff.line"]
+        self._get_picking_lines()
+        return res
 
+    def _get_picking_domain(self, cutoff_type, cutoff_datetime):
+        pick_type_map = {
+            "accrued_revenue": "outgoing",
+            "accrued_expense": "incoming",
+        }
+
+        min_date_dt = cutoff_datetime - relativedelta(
+            days=self.picking_interval_days
+        )
+
+        return [
+            ("picking_type_code", "=", pick_type_map[cutoff_type]),
+            ("state", "=", "done"),
+            ("date_done", "<=", cutoff_datetime),
+            ("date_done", ">=", min_date_dt),
+            ("company_id", "=", self.company_id.id),
+        ]
+
+    def _get_picking_lines(self):
+        aclo = self.env["account.cutoff.line"]
         account_mapping = self._get_mapping_dict()
         cutoff_type = self.cutoff_type
         cutoff_datetime = self._get_cutoff_datetime()
@@ -414,31 +435,14 @@ class AccountCutoff(models.Model):
         # starting point : invoice
         # then, go to order line. From order line, go to stock moves and invoices lines
         # => gen cutoff line if precut_invoiced_qty - precut_delivered_qty > 0
-
         # ACCURAL
         if cutoff_type in ("accrued_revenue", "accrued_expense"):
-            pick_type_map = {
-                "accrued_revenue": "outgoing",
-                "accrued_expense": "incoming",
-            }
-
-            min_date_dt = cutoff_datetime - relativedelta(
-                days=self.picking_interval_days
-            )
-
-            pickings = self.env["stock.picking"].search(
-                [
-                    ("picking_type_code", "=", pick_type_map[cutoff_type]),
-                    ("state", "=", "done"),
-                    ("date_done", "<=", cutoff_datetime),
-                    ("date_done", ">=", min_date_dt),
-                    ("company_id", "=", self.company_id.id),
-                ]
-            )
+            pickings = self.env["stock.picking"].search(self._get_picking_domain(cutoff_type, cutoff_datetime))
 
             for p in pickings:
                 for move in p.move_lines.filtered(lambda m: m.state == "done"):
                     self.stock_move_update_oline_dict(move, oline_dict, cutoff_datetime)
+
         elif cutoff_type in ("prepaid_revenue", "prepaid_expense"):
             move_type_map = {
                 "prepaid_revenue": ("out_invoice", "out_refund"),
@@ -467,11 +471,11 @@ class AccountCutoff(models.Model):
 
         # from pprint import pprint
         # pprint(oline_dict)
+
         for vdict in oline_dict.values():
             vals = self.picking_prepare_cutoff_line(vdict, account_mapping)
             if vals:
                 aclo.create(vals)
-        return res
 
     def _get_cutoff_datetime(self):
         self.ensure_one()
