@@ -413,6 +413,10 @@ class AccountCutoff(models.Model):
             ("company_id", "=", self.company_id.id),
         ]
 
+    def stock_picking_update_oline_dict(self, picking, oline_dict, cutoff_datetime):
+        for move in picking.move_lines.filtered(lambda m: m.state == "done"):
+            self.stock_move_update_oline_dict(move, oline_dict, cutoff_datetime)
+
     def _get_picking_lines(self):
         aclo = self.env["account.cutoff.line"]
         account_mapping = self._get_mapping_dict()
@@ -440,8 +444,7 @@ class AccountCutoff(models.Model):
             pickings = self.env["stock.picking"].search(self._get_picking_domain(cutoff_type, cutoff_datetime))
 
             for p in pickings:
-                for move in p.move_lines.filtered(lambda m: m.state == "done"):
-                    self.stock_move_update_oline_dict(move, oline_dict, cutoff_datetime)
+                self.stock_picking_update_oline_dict(p, oline_dict, cutoff_datetime)
 
         elif cutoff_type in ("prepaid_revenue", "prepaid_expense"):
             move_type_map = {
@@ -471,7 +474,6 @@ class AccountCutoff(models.Model):
 
         # from pprint import pprint
         # pprint(oline_dict)
-
         for vdict in oline_dict.values():
             vals = self.picking_prepare_cutoff_line(vdict, account_mapping)
             if vals:
