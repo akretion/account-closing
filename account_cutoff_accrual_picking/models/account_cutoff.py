@@ -306,6 +306,8 @@ class AccountCutoff(models.Model):
             oline_qty_puom = order_line.product_uom._compute_quantity(
                 order_line.product_qty, product.uom_id
             )
+            if oline_qty_puom == 0:
+                return
             wdict["price_unit"] = order_line.price_subtotal / oline_qty_puom
             wdict["price_origin"] = order.name
             wdict["currency"] = order.currency_id
@@ -325,6 +327,8 @@ class AccountCutoff(models.Model):
             oline_qty_puom = order_line.product_uom._compute_quantity(
                 order_line.product_uom_qty, product.uom_id
             )
+            if oline_qty_puom == 0:
+                return
             wdict["price_unit"] = order_line.price_subtotal / oline_qty_puom
             wdict["price_origin"] = order.name
             wdict["currency"] = order.currency_id
