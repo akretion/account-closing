@@ -244,6 +244,17 @@ class AccountCutoff(models.Model):
                 )
             )
 
+    def filter_entries(self, order_line):
+        if self.source_move_state == "posted":
+            ilines = order_line.invoice_lines.filtered(
+                lambda x: x.parent_state == "posted"
+            )
+        else:
+            ilines = order_line.invoice_lines.filtered(
+                lambda x: x.parent_state in ("draft", "posted")
+            )
+        return ilines
+
     def order_line_update_oline_dict_from_invoice_lines(
         self, order_line, order_type, oline_dict, cutoff_datetime
     ):
@@ -258,14 +269,7 @@ class AccountCutoff(models.Model):
         # These fields have the same name on PO and SO
         product = order_line.product_id
         product_uom = product.uom_id
-        if self.source_move_state == "posted":
-            ilines = order_line.invoice_lines.filtered(
-                lambda x: x.parent_state == "posted"
-            )
-        else:
-            ilines = order_line.invoice_lines.filtered(
-                lambda x: x.parent_state in ("draft", "posted")
-            )
+        ilines = self.filter_entries(order_line)
         for iline in ilines:
             invoice = iline.move_id
             if not float_is_zero(iline.quantity, precision_digits=qty_prec):
