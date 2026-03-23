@@ -409,9 +409,7 @@ class AccountCutoff(models.Model):
             "accrued_expense": "incoming",
         }
 
-        min_date_dt = cutoff_datetime - relativedelta(
-            days=self.picking_interval_days
-        )
+        min_date_dt = cutoff_datetime - relativedelta(days=self.picking_interval_days)
 
         return [
             ("picking_type_code", "=", pick_type_map[cutoff_type]),
@@ -424,6 +422,27 @@ class AccountCutoff(models.Model):
     def stock_picking_update_oline_dict(self, picking, oline_dict, cutoff_datetime):
         for move in picking.move_lines.filtered(lambda m: m.state == "done"):
             self.stock_move_update_oline_dict(move, oline_dict, cutoff_datetime)
+
+    def _get_accrual_picking_invoice_domain(
+        self,
+    ):
+        min_date = self.cutoff_date - relativedelta(days=self.picking_interval_days)
+        move_type_map = {
+            "prepaid_revenue": ("out_invoice", "out_refund"),
+            "prepaid_expense": ("in_invoice", "in_refund"),
+        }
+
+        inv_domain = [
+            ("move_type", "in", move_type_map[self.cutoff_type]),
+            ("date", "<=", self.cutoff_date),
+            ("date", ">=", min_date),
+            ("company_id", "=", self.company_id.id),
+        ]
+        if self.source_move_state == "posted":
+            inv_domain.append(("state", "=", "posted"))
+        else:
+            inv_domain.append(("state", "in", ("draft", "posted")))
+        return inv_domain
 
     def _get_picking_lines(self):
         aclo = self.env["account.cutoff.line"]
@@ -449,27 +468,15 @@ class AccountCutoff(models.Model):
         # => gen cutoff line if precut_invoiced_qty - precut_delivered_qty > 0
         # ACCURAL
         if cutoff_type in ("accrued_revenue", "accrued_expense"):
-            pickings = self.env["stock.picking"].search(self._get_picking_domain(cutoff_type, cutoff_datetime))
+            pickings = self.env["stock.picking"].search(
+                self._get_picking_domain(cutoff_type, cutoff_datetime)
+            )
 
             for p in pickings:
                 self.stock_picking_update_oline_dict(p, oline_dict, cutoff_datetime)
 
         elif cutoff_type in ("prepaid_revenue", "prepaid_expense"):
-            move_type_map = {
-                "prepaid_revenue": ("out_invoice", "out_refund"),
-                "prepaid_expense": ("in_invoice", "in_refund"),
-            }
-            min_date = self.cutoff_date - relativedelta(days=self.picking_interval_days)
-            inv_domain = [
-                ("move_type", "in", move_type_map[cutoff_type]),
-                ("date", "<=", self.cutoff_date),
-                ("date", ">=", min_date),
-                ("company_id", "=", self.company_id.id),
-            ]
-            if self.source_move_state == "posted":
-                inv_domain.append(("state", "=", "posted"))
-            else:
-                inv_domain.append(("state", "in", ("draft", "posted")))
+            inv_domain = self._get_accrual_picking_invoice_domain()
             invoices = self.env["account.move"].search(inv_domain)
             for invoice in invoices:
                 for iline in invoice.invoice_line_ids.filtered(
